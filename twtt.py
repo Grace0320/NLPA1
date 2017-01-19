@@ -4,9 +4,12 @@ import csv
 import itertools
 import re
 import unicodedata
+import HTMLParser
 
 reload(sys)
 sys.setdefaultencoding('utf8')
+
+h = HTMLParser.HTMLParser()
 
 #build URL search patterns
 tlds = "\.(com|org|net|int|edu|gov|mil|ca|uk|io)"
@@ -15,23 +18,27 @@ URLPattern = r"\s*(www\.|http:|https:)" + URLAllowedChars + "\s*"
 TLDOnlyPattern = r"\s*" + URLAllowedChars + tlds + "\s*"
 
 #build abbreviation patterns
-abbrevList = []
 abbrevPattern = ""
 
 #build username & hashtag patterns
 userPattern = r"(^|\s)(?:@)([a-zA-Z0-9_]{1,15})"   #alphanum or underscore to a max length of 15, preceded by spaces or nothing
 hashTagPattern = r"(?:#)([A-Za-z0-9_]{1,140})"	   #alphanum or underscore to max length of tweet length
 
+#Clitics
+preClitics = ["o'", "ol'", "y'"]
+postClitics = ["n't", "'s", "'ve", "'m", "'re", "'ll","'d", "'"]
+
 def loadEnglishAbbrev():
 	f = open('abbrev.english', 'r')
 	abbrevList = f.readlines()
-	abbrevPattern = "("
-	lim = len(abbrevList) - 1
+	global abbrevPattern
+	abbrevPattern += "("
+	lim = len(abbrevList)
 	for i in range(0, lim):
-		abbrevPattern += abbrevList[i].strip()
+		abbrevPattern += abbrevList[i].strip('. \n\t')
 		if i < lim - 1:
 			abbrevPattern += r'|'
-	abbrevPattern += ")"		
+	abbrevPattern += ")"
 
 # All html tags and attributes (i.e.,/<[^>]+>/) are removed.
 def twtt1(rawTweet): 	
@@ -40,7 +47,8 @@ def twtt1(rawTweet):
 # Html character codes (i.e.,&...;) are replaced with an ASCII equivalent.
 def twtt2(rawTweet): 
 	try:
-		asciiVer = unicodedata.normalize('NFKD', rawTweet.decode('utf-8')).encode('ascii','ignore')
+		htmlFree = h.unescape(rawTweet)
+		asciiVer = unicodedata.normalize('NFKD', htmlFree.decode('utf-8')).encode('ascii','ignore')
 		return asciiVer
 	except UnicodeDecodeError:
 		asciiVer = rawTweet.decode('ascii','ignore')
@@ -56,24 +64,44 @@ def twtt3(rawTweet):
 # The first character in Twitter user names and hash tags (i.e., @ and #) are removed.
 def twtt4(rawTweet): 
 	#usernames
-	remFirstUserChar = re.sub(userPattern, r"\1", rawTweet)
+	remFirstUserChar = re.sub(userPattern, r"\2", rawTweet)
 	#hashtags
 	remHashTags = re.sub(hashTagPattern, r"\1", remFirstUserChar)
 	return remHashTags
 
 #Each sentence within a tweet is on its own line.
 def twtt5(rawTweet):  
-	#TODO abbreviations
-	
-	return re.sub(r"([^.!?]*)(\.|\!|\?)(\s+)", r"\1\2\n", rawTweet) 
 
+	#split tweets on ?!.
+	nlOnPeriods = re.sub(r"([^.!?]*)(\.|\!|\?)(\s+)", r"\1\2\n", rawTweet)
+	lines = nlOnPeriods.split('\n')
+	procTweet = ""
+
+	#piece lines back together that had abbreviations
+	for i in range(0, len(lines)):
+		procTweet += lines[i].lstrip()
+		if i < len(lines) - 2:
+			if not re.search(abbrevPattern + "\.$", lines[i]):
+				procTweet += '\n'
+			else:
+				procTweet += ' '
+	return procTweet
+			
 # Ellipsis (i.e., `...'), and other kinds of multiple punctuation (e.g., `!!!')  are not split
 def twtt6(rawTweet): 
 	return rawTweet
 
 #Each token, including punctuation and clitics, is separated by spaces.
-def twtt7(rawTweet): 
-	return rawTweet
+def twtt7(rawTweet):
+	#punctuation
+	endOfWordPunc = re.sub(r"""(\w)([.,!?;:~\/\\*+=\-\"^%$#@()[\]{}])""", r'\1 \2', rawTweet)
+	beforeWordPunc = re.sub(r"""([.,!?;:~\/\\*+=\-\"^%$#@\(\)[\]{}])(\w)""", r'\1 \2', endOfWordPunc)
+	multiSpaceRemoved = re.sub(r'(\s+)', r' ', beforeWordPunc)
+	
+
+	#clitics
+	
+	return multiSpaceRemoved
 
 # Each token is tagged with its part-of-speech.
 def twtt8(rawTweet): 
@@ -81,9 +109,7 @@ def twtt8(rawTweet):
 
 #Before each tweet is demarcation `<A=#>', which occurs on its own line, where # is the numeric class of the tweet (0 or 4).
 def twtt9(rawTweet, polarity): 
-	return rawTweet
-
-
+	return '<A=' + str(polarity) + '>\n' + rawTweet
 
 def main():
     # parse command line options
