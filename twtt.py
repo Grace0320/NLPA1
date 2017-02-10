@@ -10,6 +10,7 @@ reload(sys)
 sys.setdefaultencoding('utf8')
 
 h = HTMLParser.HTMLParser()
+tagger = NLPlib.NLPlib()
 
 #build URL search patterns
 tlds = "\.(com|org|net|int|edu|gov|mil|ca|uk|io)"
@@ -19,6 +20,7 @@ TLDOnlyPattern = r"\s*" + URLAllowedChars + tlds + "\s*"
 
 #build abbreviation patterns
 abbrevPattern = ""
+cliticPattern = ""
 
 #build username & hashtag patterns
 userPattern = r"(^|\s)(?:@)([a-zA-Z0-9_]{1,15})"   #alphanum or underscore to a max length of 15, preceded by spaces or nothing
@@ -39,6 +41,18 @@ def loadEnglishAbbrev():
 		if i < lim - 1:
 			abbrevPattern += r'|'
 	abbrevPattern += ")"
+
+def loadEnglishClitics():
+	f = open('clitic.english', 'r')
+	cliticList = f.readlines()
+	global cliticPattern
+	cliticPattern += "("
+	lim = len(cliticList)
+	for i in range(0, lim):
+		cliticPattern += cliticList[i].strip('. \n\t')
+		if i < lim - 1:
+			cliticPattern += r'|'
+	cliticPattern += ")"
 
 # All html tags and attributes (i.e.,/<[^>]+>/) are removed.
 def twtt1(rawTweet): 	
@@ -73,14 +87,14 @@ def twtt4(rawTweet):
 def twtt5(rawTweet):  
 
 	#split tweets on ?!.
-	nlOnPeriods = re.sub(r"([^.!?]*)(\.|\!|\?)(\s+)", r"\1\2\n", rawTweet)
+	nlOnPeriods = re.sub(r"([^.!?]*)(\.|\!|\?)(\s+|\w+)", r"\1\2\n", rawTweet)
 	lines = nlOnPeriods.split('\n')
 	procTweet = ""
 
 	#piece lines back together that had abbreviations
 	for i in range(0, len(lines)):
 		procTweet += lines[i].lstrip()
-		if i < len(lines) - 2:
+		if i < len(lines) - 1:
 			if not re.search(abbrevPattern + "\.$", lines[i]):
 				procTweet += '\n'
 			else:
@@ -96,16 +110,25 @@ def twtt7(rawTweet):
 	#punctuation
 	endOfWordPunc = re.sub(r"""(\w)([.,!?;:~\/\\*+=\-\"^%$#@()[\]{}])""", r'\1 \2', rawTweet)
 	beforeWordPunc = re.sub(r"""([.,!?;:~\/\\*+=\-\"^%$#@\(\)[\]{}])(\w)""", r'\1 \2', endOfWordPunc)
-	multiSpaceRemoved = re.sub(r'(\s+)', r' ', beforeWordPunc)
-	
 
 	#clitics
-	
-	return multiSpaceRemoved
+	preClitics = re.sub(cliticPattern + r"(\w)",r"", beforeWordPunc, flags=re.IGNORECASE)
+	postClitics = re.sub(r"(\w)" + cliticPattern, r"\1 \2", preClitics, flags=re.IGNORECASE)
+	return postClitics
 
 # Each token is tagged with its part-of-speech.
 def twtt8(rawTweet): 
-	return rawTweet
+	lines = rawTweet.split("\n")
+	procTweet = ""
+	for i in range(0, len(lines)):
+		tokenArr  = lines[i].split()
+		tags = tagger.tag(tokenArr)
+		for j in range(0, len(tokenArr)):
+			procTweet += tokenArr[j] + "/" +  tags[j] + " "
+		procTweet += "\n"	
+
+	procTweet = procTweet.strip()
+	return procTweet
 
 #Before each tweet is demarcation `<A=#>', which occurs on its own line, where # is the numeric class of the tweet (0 or 4).
 def twtt9(rawTweet, polarity): 
@@ -123,12 +146,19 @@ def main():
 	constForLineSelect = studentNum%80 * 10000
 
 	inFile = open(inFileName,'r')
-	rows1 = list(csv.reader(itertools.islice(inFile, constForLineSelect, constForLineSelect + 9999)))
-	rows2 = list(csv.reader(itertools.islice(inFile, constForLineSelect + 800000, constForLineSelect + 809999)))
-	rows = rows1 + rows2
+	fileObject = csv.reader(inFile)
+	numLines = sum(1 for row in fileObject)
+	inFile.seek(0)
+	if (numLines > 500):  #train
+		rows1 = list(csv.reader(itertools.islice(inFile, constForLineSelect, constForLineSelect + 9999)))
+		rows2 = list(csv.reader(itertools.islice(inFile, constForLineSelect + 800000, constForLineSelect + 809999)))
+		rows = rows1 + rows2
+	else: #test
+		rows = list(csv.reader(inFile))
 	inFile.close()
 	
 	loadEnglishAbbrev()
+	loadEnglishClitics()
 	outFile = open(outFileName, 'w')
 	
 	for tweetData in rows:
@@ -140,10 +170,8 @@ def main():
 		v6 = twtt6(v5)
 		v7 = twtt7(v6)
 		v8 = twtt8(v7)
-		v9 = twtt9(v8, 0)
-		if not v9 or v9[len(v9) - 1] != '\n':	
-			v9 = v9 + '\n'
-		outFile.write(v9)
+		v9 = twtt9(v8, tweetData[0])
+		outFile.write(v9 + "\n")
 	outFile.close()
 
 if __name__ == "__main__":
