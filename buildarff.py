@@ -8,8 +8,17 @@ secondPPattern = ""
 thirdPPattern = ""
 
 #regex patterns for verbs
-#modals
-modalPattern = "(can|could|may|might|must|shall|should|will|would|ought|had better|dare|need)"
+#modals for future tense
+# MD (not|n't)? VB (VBG|VBN)? (PRP|PRP$ VBG)? 
+# possible adverbs with verbs
+# eg will be taking them swimming
+# eg will not have taken them swimming
+# special case: need to VB (PRP VB)?
+futurePattern = "\w*\/MD(( not| n't)\/RB)?( \w*\/RB)* \w*\/VB ((\w*\/VBG |(\w*\/VBN)) (\w*\/(PRP|PRP\$) \w*\/VBG)?)?"
+futureNeedPattern = "need (to/TO|2/NN) \w*\/VB (\w*(\/VBG|\/VBN))?"
+
+#past tense
+pastPattern = "\w*(?<!MD) ((\w*\/VB( \w*\/RB)* \w*\/VBN)|(\w*\/VBD ((( \w*\/RB)* (\w*\/VBG|\w*\/VBN)?)|(\w*\/TO( \w*\/RB)* \w*\/VB))?))"
 
 ### input: tweet
 ### output: dict with kv pairs as follows ((token, tag) : numOccurrences)
@@ -115,23 +124,13 @@ def feat4(tweet): #coordinating conjunctions
 	return getCountPOS(tweet, ["CC"])
 
 def feat5(tweet): # past tense verbs
-	#I verbed   -- covered by VBD, but need to search to combine have verbed tokens
-	#I have verbed
-	#I was verbed
-	#I am verbed
-	return getCountPOS(tweet, ["VBD"])
+	return len(re.findall(pastPattern, tweet))
 
 def feat6(tweet): #future tense verbs
-	#I will verb
-	#I might verb
-	#I may verb
-	#I am going to verb
-	#I shall
-	#I can
-	#I should
-	#I am about to
-	can, could, may, might, must, shall, should, will and would. ought, had better,dare and need
-	return 0
+	count = 0;
+	count += len(re.findall(futurePattern, tweet))
+	count += len(re.findall(futureNeedPattern, tweet, re.IGNORECASE))
+	return count
 
 def feat7(tweet): #commas
 	return getCountPOS(tweet, ",")
@@ -227,7 +226,7 @@ def main():
 	outFileName = args[2]
 	maxTweets = -1
 	if len(sys.argv) == 4:
-		maxTweets = args[3]
+		maxTweets = int(args[3])
 
 	twttArr = []
 	inFile = open(inFileName,'r')
@@ -248,13 +247,36 @@ def main():
 	thirdPPattern = loadWordList('Third-person')
 
 	outFile = open(outFileName, "w+")
+	outFile.write("@relation sentiment\n\n")
+	for i in range(1, 21):
+		outFile.write("@attribute feat" + str(i) + " numeric\n")
+	outFile.write("@attribute class {0, 4}\n\n")
+	outFile.write("@data\n")
 	dataString = ""
 
+	numZeroTweets = 0
+	numFourTweets = 0
 	for tweet in twttArr:
+		affect = re.search("<A=(\d+)>", tweet.split("\n")[0]).groups(0)
+		if maxTweets != -1:
+			if numZeroTweets >= maxTweets and numFourTweets >= maxTweets:
+				break
+			if affect[0] == '0':
+				if numZeroTweets >= maxTweets:
+					continue
+				else:
+					numZeroTweets += 1
+			elif affect[0] == '4':
+				if numFourTweets >= maxTweets:
+					continue
+				else:
+					numFourTweets += 1
+
 		dataString = (str(feat1(tweet)) + "," + str(feat2(tweet)) + "," + str(feat3(tweet)) + "," + str(feat4(tweet)) + "," + str(feat5(tweet)) + "," + str(feat6(tweet)) + "," + str(feat7(tweet)) + "," +
 		str(feat8(tweet)) + "," + str(feat9(tweet)) + "," + str(feat10(tweet)) + "," + str(feat11(tweet)) + "," + str(feat12(tweet)) + "," + str(feat13(tweet)) + "," + str(feat14(tweet)) + "," +
-		str(feat15(tweet)) + "," + str(feat16(tweet)) + "," + str(feat17(tweet)) + "," + "{0:.2f}".format(feat18(tweet)) + "," + "{0:.2f}".format(feat19(tweet)) + "," + str(feat20(tweet)) + "\n")
-		outFile.write(dataString)
+		str(feat15(tweet)) + "," + str(feat16(tweet)) + "," + str(feat17(tweet)) + "," + "{0:.2f}".format(feat18(tweet)) + "," + "{0:.2f}".format(feat19(tweet)) + "," + str(feat20(tweet)))
+		affect = re.search("<A=(\d+)>", tweet.split("\n")[0]).groups(0)
+		outFile.write(dataString + "," + affect[0] + "\n")
 
 
 

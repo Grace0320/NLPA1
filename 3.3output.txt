@@ -1,0 +1,77 @@
+n = 500
+----------------------------------------------------------------------------------
+=== Attribute Selection on all input data ===
+
+Search Method:
+	Attribute ranking.
+
+Attribute Evaluator (supervised, Class (nominal): 21 class):
+	Information Gain Ranking Filter
+
+Ranked attributes:
+ 0.0325   19 feat19
+ 0.0203   14 feat14
+ 0.0165    2 feat2
+ 0.0122    1 feat1
+ 0         7 feat7
+ 0         9 feat9
+ 0         8 feat8
+ 0         4 feat4
+ 0         3 feat3
+ 0         6 feat6
+ 0         5 feat5
+ 0        17 feat17
+ 0        16 feat16
+ 0        20 feat20
+ 0        18 feat18
+ 0        11 feat11
+ 0        10 feat10
+ 0        15 feat15
+ 0        12 feat12
+ 0        13 feat13
+
+Selected attributes: 19,14,2,1,7,9,8,4,3,6,5,17,16,20,18,11,10,15,12,13 : 20
+----------------------------------------------------------------------------------
+
+n = 10000
+----------------------------------------------------------------------------------
+=== Attribute Selection on all input data ===
+
+Search Method:
+	Attribute ranking.
+
+Attribute Evaluator (supervised, Class (nominal): 21 class):
+	Information Gain Ranking Filter
+
+Ranked attributes:
+ 0.024995   19 feat19
+ 0.021414    1 feat1
+ 0.010988   14 feat14
+ 0.008982    2 feat2
+ 0.00581     5 feat5
+ 0.003848   18 feat18
+ 0.003505   13 feat13
+ 0.003038   11 feat11
+ 0.002317    9 feat9
+ 0.002246    3 feat3
+ 0.001346   10 feat10
+ 0.001266    4 feat4
+ 0.001243    7 feat7
+ 0.000892    8 feat8
+ 0.00053    12 feat12
+ 0          20 feat20
+ 0          17 feat17
+ 0           6 feat6
+ 0          16 feat16
+ 0          15 feat15
+
+Selected attributes: 19,1,14,2,5,18,13,11,9,3,10,4,7,8,12,20,17,6,16,15 : 20
+----------------------------------------------------------------------------------
+
+The features that seem to retain the most importance at both levels of data are:
+19 - average length of token
+14 - number of adverbs
+1 - number of first person pronouns
+2 - number of second person pronouns
+
+The rest of the features vary in their ranking from 500 to 10000. The reason why these vary while the top 4 stay about the same is probably because in the set of 500, the rest of the features suffer from outliers that affect their value, where in the set of 10000 outliers would be averaged over the larger sample set.

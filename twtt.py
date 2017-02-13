@@ -12,13 +12,14 @@ sys.setdefaultencoding('utf8')
 h = HTMLParser.HTMLParser()
 tagger = NLPlib.NLPlib()
 
-#build URL search patterns
-tlds = "\.(com|org|net|int|edu|gov|mil|ca|uk|io)"
+# build URL search patterns
+# which characters to look for determined from here: http://stackoverflow.com/questions/7109143/what-characters-are-valid-in-a-url
 URLAllowedChars = "[A-Za-z0-9-._~:\/?#\[\]@!$&'()*+,;=]*"
+tlds = "\.(com|org|net|int|edu|gov|mil|ca|uk|io)"
 URLPattern = r"\s*(www\.|http:|https:)" + URLAllowedChars + "\s*"
 TLDOnlyPattern = r"\s*" + URLAllowedChars + tlds + "\s*"
 
-#build abbreviation patterns
+#global abbreviation patterns
 abbrevPattern = ""
 cliticPattern = ""
 
@@ -30,6 +31,7 @@ hashTagPattern = r"(?:#)([A-Za-z0-9_]{1,140})"	   #alphanum or underscore to max
 preClitics = ["o'", "ol'", "y'"]
 postClitics = ["n't", "'s", "'ve", "'m", "'re", "'ll","'d", "'"]
 
+# load list of english abbreviations into a an OR statement for regex
 def loadEnglishAbbrev():
 	f = open('abbrev.english', 'r')
 	abbrevList = f.readlines()
@@ -42,6 +44,7 @@ def loadEnglishAbbrev():
 			abbrevPattern += r'|'
 	abbrevPattern += ")"
 
+# load list of english clitics into a an OR statement for regex
 def loadEnglishClitics():
 	f = open('clitic.english', 'r')
 	cliticList = f.readlines()
@@ -70,7 +73,6 @@ def twtt2(rawTweet):
 		
 # All URLs (i.e., tokens beginning with http or www) are removed.
 def twtt3(rawTweet): 
-	# which characters to look for determined from here: http://stackoverflow.com/questions/7109143/what-characters-are-valid-in-a-url
 	remWwwHttp = re.sub(URLPattern, ' ', rawTweet)  
 	remTLDs = re.sub(TLDOnlyPattern, ' ', remWwwHttp)
 	return remTLDs
@@ -150,8 +152,9 @@ def main():
 	numLines = sum(1 for row in fileObject)
 	inFile.seek(0)
 	if (numLines > 500):  #train
-		rows1 = list(csv.reader(itertools.islice(inFile, constForLineSelect, constForLineSelect + 9999)))
-		rows2 = list(csv.reader(itertools.islice(inFile, constForLineSelect + 800000, constForLineSelect + 809999)))
+		rows1 = list(csv.reader(itertools.islice(inFile, constForLineSelect, constForLineSelect + 10000)))
+		inFile.seek(0)
+		rows2 = list(csv.reader(itertools.islice(inFile, constForLineSelect + 800000, constForLineSelect + 810000)))
 		rows = rows1 + rows2
 	else: #test
 		rows = list(csv.reader(inFile))
